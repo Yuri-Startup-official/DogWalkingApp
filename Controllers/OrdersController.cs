@@ -46,6 +46,12 @@ public class OrdersController : ControllerBase
 
         return Ok(new { Message = "Заказ успешно создан!", OrderId = order.Id });
     }
+    
+    // НОВЫЙ КЛАСС: Для приема отчета
+    public class CompleteOrderDto
+    {
+        public string? ReportText { get; set; }
+    }
     // 1. GET: api/orders/available - Посмотреть все свободные заказы
     [HttpGet("available")]
     public async Task<IActionResult> GetAvailableOrders()
@@ -83,8 +89,9 @@ public class OrdersController : ControllerBase
     }
 
 // 3. PUT: api/orders/{orderId}/complete - Завершить заказ
+    // 3. PUT: api/orders/{orderId}/complete - Завершить заказ и добавить отчет
     [HttpPut("{orderId}/complete")]
-    public async Task<IActionResult> CompleteOrder(int orderId)
+    public async Task<IActionResult> CompleteOrder(int orderId, [FromBody] CompleteOrderDto request)
     {
         var order = await _context.Orders.FindAsync(orderId);
         if (order == null) return NotFound("Заказ не найден.");
@@ -92,6 +99,8 @@ public class OrdersController : ControllerBase
         if (order.Status != "InProgress") return BadRequest("Можно завершить только заказ в процессе.");
 
         order.Status = "Completed"; // Меняем статус на "Завершен"
+        order.ReportText = request.ReportText; // Сохраняем отчет
+        
         await _context.SaveChangesAsync();
 
         return Ok(new { Message = "Заказ успешно завершен!", OrderId = order.Id });

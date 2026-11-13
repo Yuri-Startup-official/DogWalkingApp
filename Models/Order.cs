@@ -16,4 +16,6 @@ public class Order
     public string Status { get; set; } = "Pending"; 
     
     public DateTime Date { get; set; }
+    
+    public string? ReportText { get; set; }
 }
