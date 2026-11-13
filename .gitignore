@@ -1,0 +1,9 @@
+# Скомпилированные файлы
+bin/
+obj/
+
+# Настройки IDE (Rider, Visual Studio)
+.idea/
+.vs/
+*.user
+*.suo
