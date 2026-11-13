@@ -48,4 +48,14 @@ public class DogsController : ControllerBase
 
         return Ok(new { Message = "Собака успешно добавлена!", DogId = dog.Id });
     }
+    // GET: api/dogs/owner/{ownerId}
+    [HttpGet("owner/{ownerId}")]
+    public async Task<IActionResult> GetDogsByOwner(int ownerId)
+    {
+        var dogs = await _context.Dogs
+            .Where(d => d.OwnerId == ownerId)
+            .ToListAsync();
+
+        return Ok(dogs);
+    }
 }
