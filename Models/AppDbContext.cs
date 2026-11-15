@@ -11,4 +11,11 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Dog> Dogs { get; set; }
     public DbSet<Order> Orders { get; set; }
+    public DbSet<UserSession> UserSessions { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<UserSession>().HasIndex(session => session.TokenHash).IsUnique();
+    }
 }

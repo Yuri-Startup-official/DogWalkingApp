@@ -15,7 +15,10 @@ public class Order
     
     public string Status { get; set; } = "Pending"; 
     
-    public DateTime Date { get; set; }
+    public string ServiceType { get; set; } = "Walk";
+    public DateTime StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+    public int? DurationMinutes { get; set; }
     
     public string? ReportText { get; set; }
 }

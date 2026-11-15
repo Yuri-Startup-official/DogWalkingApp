@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using DogWalkingApp.Api.Models;
 
@@ -21,15 +23,17 @@ public class DogsController : ControllerBase
         public string Name { get; set; } = string.Empty;
         public string Breed { get; set; } = string.Empty;
         public int Age { get; set; }
-        public int OwnerId { get; set; } // ID владельца, к которому привяжем собаку
+
     }
 
     // POST: api/dogs
+    [Authorize(Roles = "Owner")]
     [HttpPost]
     public async Task<IActionResult> CreateDog(CreateDogDto request)
     {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         // Проверяем, существует ли владелец с таким ID
-        var ownerExists = await _context.Users.AnyAsync(u => u.Id == request.OwnerId);
+        var ownerExists = await _context.Users.AnyAsync(u => u.Id == ownerId);
         if (!ownerExists)
         {
             return BadRequest("Владелец с таким ID не найден.");
@@ -40,7 +44,7 @@ public class DogsController : ControllerBase
             Name = request.Name,
             Breed = request.Breed,
             Age = request.Age,
-            OwnerId = request.OwnerId
+            OwnerId = ownerId
         };
 
         _context.Dogs.Add(dog);
@@ -49,9 +53,13 @@ public class DogsController : ControllerBase
         return Ok(new { Message = "Собака успешно добавлена!", DogId = dog.Id });
     }
     // GET: api/dogs/owner/{ownerId}
+    [Authorize(Roles = "Owner")]
     [HttpGet("owner/{ownerId}")]
     public async Task<IActionResult> GetDogsByOwner(int ownerId)
     {
+        var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        if (ownerId != currentUserId) return Forbid();
+
         var dogs = await _context.Dogs
             .Where(d => d.OwnerId == ownerId)
             .ToListAsync();
