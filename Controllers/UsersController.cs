@@ -1,6 +1,7 @@
+using DogWalkingApp.Api.Data;
+using DogWalkingApp.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DogWalkingApp.Api.Models;
 
 namespace DogWalkingApp.Api.Controllers;
 
@@ -8,43 +9,59 @@ namespace DogWalkingApp.Api.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly AppDbContext _db;
 
-    public UsersController(AppDbContext context)
+    public UsersController(AppDbContext db) => _db = db;
+
+    // GET: api/users
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<User>>> GetAll()
     {
-        _context = context;
+        return await _db.Users
+            .Where(u => u.DeletedAt == null)
+            .ToListAsync();
     }
 
-    // Класс для приема данных (DTO)
-    public class RegisterDto
+    // GET: api/users/5
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<User>> GetById(long id)
     {
-        public string Name { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string Role { get; set; } = "Owner";
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
+
+        if (user == null) return NotFound();
+        return user;
     }
 
-    // POST: api/users/register
-    [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterDto request)
+    // POST: api/users
+    [HttpPost]
+    public async Task<ActionResult<User>> Create([FromBody] CreateUserRequest request)
     {
-        // Проверяем, есть ли уже такой email
-        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
-        {
-            return BadRequest("Пользователь с таким email уже существует.");
-        }
-
         var user = new User
         {
-            Name = request.Name,
+            PublicId = Guid.NewGuid(),
             Email = request.Email,
-            PasswordHash = request.Password, // Пока просто для теста (позже сделаем хеширование!)
-            Role = request.Role
+            Phone = request.Phone,
+            PasswordHash = request.PasswordHash, // В реале — хешировать!
+            Name = request.Name,
+            Role = request.Role ?? "owner"
         };
 
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
 
-        return Ok(new { Message = "Пользователь успешно зарегистрирован!", UserId = user.Id });
+        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
     }
 }
+
+// DTO для создания — не светим всю сущность в API
+public record CreateUserRequest(
+    string Email,
+    string Name,
+    string PasswordHash,
+    string? Phone = null,
+    string? Role = null
+);
+
+//PasswordHash в DTO — это временно, чтобы можно было протестировать. На проде сюда придёт Password (открытый), а хеширование будет внутри контроллера или сервиса.
+

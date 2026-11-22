@@ -1,27 +1,30 @@
-// В самом верху
-using DogWalkingApp.Api.Models;
+using DogWalkingApp.Api.Data;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ... ваши настройки БД ...
+// Для MSSQL, когда дойдёт до интеграции на Postgres — поменям на UseNpgsql
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Добавляем Swagger
+// Альтернатива для Postgres:
+// builder.Services.AddDbContext<AppDbContext>(options =>
+//     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddControllers();
-
 var app = builder.Build();
 
-// Включаем Swagger в режиме разработки
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseHttpsRedirection();
+app.UseAuthorization();
 app.MapControllers();
+
 app.Run();

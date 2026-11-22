@@ -1,21 +1,39 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace DogWalkingApp.Api.Models;
 
 public class Order
 {
-    public int Id { get; set; }
+    public long Id { get; set; }
+    public Guid PublicId { get; set; }
     
-    public int OwnerId { get; set; }
-    public User? Owner { get; set; }
+    // Прогулка или передержка
+    [MaxLength(10)]
+    public string ServiceType { get; set; } = null!;
     
-    public int? WalkerId { get; set; }
-    public User? Walker { get; set; }
+    public long OwnerId { get; set; }
+    public long? SitterId { get; set; }
     
-    public int DogId { get; set; }
-    public Dog? Dog { get; set; }
+    // pending | accepted | in_progress | completed | cancelled | disputed
+    [MaxLength(20)]
+    public string Status { get; set; } = "pending";
     
-    public string Status { get; set; } = "Pending"; 
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal? TotalPrice { get; set; }
     
-    public DateTime Date { get; set; }
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal? PlatformFee { get; set; }
     
-    public string? ReportText { get; set; }
+    public string? PaymentIntentId { get; set; }
+    public string? PaymentStatus { get; set; } = "pending";
+    public DateTime? PaidAt { get; set; }
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+    
+    public User Owner { get; set; } = null!;
+    public User? Sitter { get; set; }
 }

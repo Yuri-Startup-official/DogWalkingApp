@@ -1,6 +1,7 @@
+using DogWalkingApp.Api.Data;
+using DogWalkingApp.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DogWalkingApp.Api.Models;
 
 namespace DogWalkingApp.Api.Controllers;
 
@@ -8,101 +9,111 @@ namespace DogWalkingApp.Api.Controllers;
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly AppDbContext _db;
 
-    public OrdersController(AppDbContext context)
+    public OrdersController(AppDbContext db) => _db = db;
+
+    // GET: api/orders
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Order>>> GetAll()
     {
-        _context = context;
+        return await _db.Orders
+            .Include(o => o.Owner)
+            .Include(o => o.Sitter)
+            .ToListAsync();
     }
 
-    public class CreateOrderDto
+    // GET: api/orders/5
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<Order>> GetById(long id)
     {
-        public int OwnerId { get; set; }
-        public int DogId { get; set; }
-        public DateTime Date { get; set; }
+        var order = await _db.Orders
+            .Include(o => o.Owner)
+            .Include(o => o.Sitter)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null) return NotFound();
+        return order;
     }
 
     // POST: api/orders
     [HttpPost]
-    public async Task<IActionResult> CreateOrder(CreateOrderDto request)
+    public async Task<ActionResult<Order>> Create([FromBody] CreateOrderRequest request)
     {
-        // Проверяем, существует ли собака и принадлежит ли она этому владельцу
-        var dog = await _context.Dogs.FirstOrDefaultAsync(d => d.Id == request.DogId && d.OwnerId == request.OwnerId);
-        if (dog == null)
-        {
-            return BadRequest("Собака не найдена или не принадлежит этому владельцу.");
-        }
+        // Проверка владельца
+        var ownerExists = await _db.Users.AnyAsync(u => u.Id == request.OwnerId && u.DeletedAt == null);
+        if (!ownerExists)
+            return BadRequest($"Владелец с ID {request.OwnerId} не найден.");
 
+        // Создаем сам заказ
         var order = new Order
         {
+            PublicId = Guid.NewGuid(),
+            ServiceType = request.ServiceType,
             OwnerId = request.OwnerId,
-            DogId = request.DogId,
-            Date = request.Date,
-            Status = "Pending" // Ожидает выгульщика
+            SitterId = request.SitterId,
+            Status = "pending",
+            TotalPrice = request.TotalPrice,
+            PlatformFee = request.PlatformFee
         };
 
-        _context.Orders.Add(order);
-        await _context.SaveChangesAsync();
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync(); // Сохраняем, чтобы получить ID
 
-        return Ok(new { Message = "Заказ успешно создан!", OrderId = order.Id });
-    }
-    
-    // НОВЫЙ КЛАСС: Для приема отчета
-    public class CompleteOrderDto
-    {
-        public string? ReportText { get; set; }
-    }
-    // 1. GET: api/orders/available - Посмотреть все свободные заказы
-    [HttpGet("available")]
-    public async Task<IActionResult> GetAvailableOrders()
-    {
-        var orders = await _context.Orders
-            .Include(o => o.Dog)   // Подтягиваем данные о собаке
-            .Include(o => o.Owner) // Подтягиваем данные о владельце
-            .Where(o => o.Status == "Pending")
-            .ToListAsync();
-
-        return Ok(orders);
-    }
-
-// 2. PUT: api/orders/{orderId}/take/{walkerId} - Взять заказ
-    [HttpPut("{orderId}/take/{walkerId}")]
-    public async Task<IActionResult> TakeOrder(int orderId, int walkerId)
-    {
-        var order = await _context.Orders.FindAsync(orderId);
-        if (order == null) return NotFound("Заказ не найден.");
-    
-        if (order.Status != "Pending") return BadRequest("Этот заказ уже взят или завершен.");
-
-        // Проверяем, что пользователь действительно выгульщик
-        var walker = await _context.Users.FindAsync(walkerId);
-        if (walker == null || walker.Role != "Walker")
+        // Создаем детали в зависимости от типа
+        if (request.ServiceType == "walking")
         {
-            return BadRequest("Пользователь не найден или не является выгульщиком.");
+            if (request.StartTime == null || request.DurationMin == null)
+                return BadRequest("Для прогулки нужно указать StartTime и DurationMin.");
+
+            var walking = new WalkingOrder
+            {
+                OrderId = order.Id,
+                StartTime = request.StartTime.Value,
+                DurationMin = request.DurationMin.Value,
+                PetsCount = request.PetsCount ?? 1,
+                MeetingPoint = request.MeetingPoint
+            };
+            _db.WalkingOrders.Add(walking);
+        }
+        else if (request.ServiceType == "boarding")
+        {
+            if (request.CheckIn == null || request.CheckOut == null)
+                return BadRequest("Для передержки нужно указать CheckIn и CheckOut.");
+
+            var boarding = new BoardingOrder
+            {
+                OrderId = order.Id,
+                CheckIn = request.CheckIn.Value,
+                CheckOut = request.CheckOut.Value,
+                PetsCount = request.PetsCount ?? 1
+            };
+            _db.BoardingOrders.Add(boarding);
         }
 
-        order.WalkerId = walkerId;
-        order.Status = "InProgress"; // Меняем статус на "В процессе"
-        await _context.SaveChangesAsync();
+        await _db.SaveChangesAsync();
 
-        return Ok(new { Message = "Заказ успешно взят в работу!", OrderId = order.Id });
-    }
-
-// 3. PUT: api/orders/{orderId}/complete - Завершить заказ
-    // 3. PUT: api/orders/{orderId}/complete - Завершить заказ и добавить отчет
-    [HttpPut("{orderId}/complete")]
-    public async Task<IActionResult> CompleteOrder(int orderId, [FromBody] CompleteOrderDto request)
-    {
-        var order = await _context.Orders.FindAsync(orderId);
-        if (order == null) return NotFound("Заказ не найден.");
-
-        if (order.Status != "InProgress") return BadRequest("Можно завершить только заказ в процессе.");
-
-        order.Status = "Completed"; // Меняем статус на "Завершен"
-        order.ReportText = request.ReportText; // Сохраняем отчет
-        
-        await _context.SaveChangesAsync();
-
-        return Ok(new { Message = "Заказ успешно завершен!", OrderId = order.Id });
+        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 }
+
+// DTO для создания заказа
+public record CreateOrderRequest(
+    string ServiceType,
+    long OwnerId,
+    long? SitterId = null,
+    decimal? TotalPrice = null,
+    decimal? PlatformFee = null,
+    
+    // Для прогулки
+    DateTime? StartTime = null,
+    int? DurationMin = null,
+    string? MeetingPoint = null,
+    
+    // Для передержки
+    DateOnly? CheckIn = null,
+    DateOnly? CheckOut = null,
+    
+    // Общее
+    int? PetsCount = null
+);
