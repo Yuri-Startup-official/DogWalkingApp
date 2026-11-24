@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DogWalkingApp.Api.Models;
 
@@ -15,6 +16,7 @@ public class User
     public string? Phone { get; set; }
     
     [Required, MaxLength(255)]
+    [JsonIgnore]
     public string PasswordHash { get; set; } = null!;
     
     [Required, MaxLength(100)]

@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using DogWalkingApp.Api.Data;
 using DogWalkingApp.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,85 +9,159 @@ namespace DogWalkingApp.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PetsController : ControllerBase
+[Authorize(Roles = "owner,both")]
+public sealed class PetsController : ControllerBase
 {
     private readonly AppDbContext _db;
 
     public PetsController(AppDbContext db) => _db = db;
 
-    // GET: api/pets
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Pet>>> GetAll()
+    [HttpGet("mine")]
+    public async Task<ActionResult<IReadOnlyList<PetDto>>> GetMine()
     {
-        return await _db.Pets
-            .Where(p => p.DeletedAt == null)
+        if (!long.TryParse(User.FindFirst("uid")?.Value, out var ownerId))
+        {
+            return Unauthorized();
+        }
+
+        var pets = await _db.Pets.AsNoTracking()
+            .Where(pet => pet.OwnerId == ownerId && pet.DeletedAt == null)
+            .OrderBy(pet => pet.Name)
             .ToListAsync();
+
+        return Ok(pets.Select(ToDto).ToList());
     }
 
-    // GET: api/pets/5
-    [HttpGet("{id:long}")]
-    public async Task<ActionResult<Pet>> GetById(long id)
-    {
-        var pet = await _db.Pets
-            .FirstOrDefaultAsync(p => p.Id == id && p.DeletedAt == null);
-
-        if (pet == null) return NotFound();
-        return pet;
-    }
-
-    // POST: api/pets
     [HttpPost]
-    public async Task<ActionResult<Pet>> Create([FromBody] CreatePetRequest request)
+    public async Task<ActionResult<PetDto>> Create([FromBody] CreatePetRequest request)
     {
-        // Проверяем, что владелец существует
-        var ownerExists = await _db.Users.AnyAsync(u => u.Id == request.OwnerId && u.DeletedAt == null);
-        if (!ownerExists)
-            return BadRequest($"Владелец с ID {request.OwnerId} не найден.");
+        if (!long.TryParse(User.FindFirst("uid")?.Value, out var ownerId))
+        {
+            return Unauthorized();
+        }
+
+        var birthDate = request.BirthDate;
+        if (birthDate is null && request.Age is not null)
+        {
+            birthDate = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-request.Age.Value);
+        }
 
         var pet = new Pet
         {
             PublicId = Guid.NewGuid(),
-            OwnerId = request.OwnerId,
-            Name = request.Name,
-            Species = request.Species ?? "dog",
-            Breed = request.Breed,
-            BirthDate = request.BirthDate,
+            OwnerId = ownerId,
+            Name = request.Name.Trim(),
+            Species = "dog",
+            Breed = string.IsNullOrWhiteSpace(request.Breed) ? null : request.Breed.Trim(),
+            BirthDate = birthDate,
             WeightKg = request.WeightKg,
             Sex = request.Sex,
             Sterilized = request.Sterilized,
-            PhotoUrl = request.PhotoUrl,
             MedicalNotes = request.MedicalNotes,
             Medications = request.Medications,
             Vaccinated = request.Vaccinated,
             VaccinationExpires = request.VaccinationExpires,
             BehaviorNotes = request.BehaviorNotes,
             AggressionLevel = request.AggressionLevel,
-            SpecialNeeds = request.SpecialNeeds
+            SpecialNeeds = request.SpecialNeeds,
+            CreatedAt = DateTime.UtcNow
         };
 
         _db.Pets.Add(pet);
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = pet.Id }, pet);
+        return CreatedAtAction(nameof(GetMine), new { }, ToDto(pet));
     }
-}
 
-// DTO для создания питомца
-public record CreatePetRequest(
-    long OwnerId,
-    string Name,
-    string? Species = "dog",
-    string? Breed = null,
-    DateOnly? BirthDate = null,
-    decimal? WeightKg = null,
-    string? Sex = null,
-    bool Sterilized = false,
-    string? PhotoUrl = null,
-    string? MedicalNotes = null,
-    string? Medications = null,
-    bool Vaccinated = false,
-    DateOnly? VaccinationExpires = null,
-    string? BehaviorNotes = null,
-    int AggressionLevel = 0,
-    string? SpecialNeeds = null
-);
+    private static PetDto ToDto(Pet pet) => new(
+        pet.Id,
+        pet.PublicId,
+        pet.Name,
+        pet.Breed,
+        CalculateAge(pet.BirthDate),
+        pet.BirthDate,
+        pet.WeightKg,
+        pet.Sex,
+        pet.Sterilized,
+        pet.MedicalNotes,
+        pet.Medications,
+        pet.Vaccinated,
+        pet.VaccinationExpires,
+        pet.BehaviorNotes,
+        pet.AggressionLevel,
+        pet.SpecialNeeds);
+
+    private static int? CalculateAge(DateOnly? birthDate)
+    {
+        if (birthDate is null)
+        {
+            return null;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var age = today.Year - birthDate.Value.Year;
+        if (birthDate.Value > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return Math.Max(0, age);
+    }
+
+    public sealed class CreatePetRequest
+    {
+        [Required, StringLength(100, MinimumLength = 1)]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string? Breed { get; set; }
+
+        [Range(0, 40)]
+        public int? Age { get; set; }
+
+        public DateOnly? BirthDate { get; set; }
+
+        [Range(typeof(decimal), "0", "300")]
+        public decimal? WeightKg { get; set; }
+
+        [StringLength(10)]
+        public string? Sex { get; set; }
+
+        public bool Sterilized { get; set; }
+        public bool Vaccinated { get; set; }
+        public DateOnly? VaccinationExpires { get; set; }
+
+        [StringLength(2000)]
+        public string? MedicalNotes { get; set; }
+
+        [StringLength(2000)]
+        public string? Medications { get; set; }
+
+        [StringLength(2000)]
+        public string? BehaviorNotes { get; set; }
+
+        [Range(0, 3)]
+        public int AggressionLevel { get; set; }
+
+        [StringLength(2000)]
+        public string? SpecialNeeds { get; set; }
+    }
+
+    public sealed record PetDto(
+        long Id,
+        Guid PublicId,
+        string Name,
+        string? Breed,
+        int? Age,
+        DateOnly? BirthDate,
+        decimal? WeightKg,
+        string? Sex,
+        bool Sterilized,
+        string? MedicalNotes,
+        string? Medications,
+        bool Vaccinated,
+        DateOnly? VaccinationExpires,
+        string? BehaviorNotes,
+        int AggressionLevel,
+        string? SpecialNeeds);
+}

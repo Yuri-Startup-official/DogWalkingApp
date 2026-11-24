@@ -14,10 +14,29 @@ public class Order
     
     public long OwnerId { get; set; }
     public long? SitterId { get; set; }
+    public long PetId { get; set; }
     
     // pending | accepted | in_progress | completed | cancelled | disputed
     [MaxLength(20)]
     public string Status { get; set; } = "pending";
+
+    [MaxLength(120)]
+    public string Area { get; set; } = string.Empty;
+
+    [MaxLength(300)]
+    public string LocationAddress { get; set; } = string.Empty;
+
+    [MaxLength(2000)]
+    public string Description { get; set; } = string.Empty;
+
+    [Column(TypeName = "decimal(9,6)")]
+    public decimal? ApproximateLatitude { get; set; }
+
+    [Column(TypeName = "decimal(9,6)")]
+    public decimal? ApproximateLongitude { get; set; }
+
+    [MaxLength(2000)]
+    public string? ReportText { get; set; }
     
     [Column(TypeName = "decimal(10,2)")]
     public decimal? TotalPrice { get; set; }
@@ -36,4 +55,8 @@ public class Order
     
     public User Owner { get; set; } = null!;
     public User? Sitter { get; set; }
+    public Pet Pet { get; set; } = null!;
+    public WalkingOrder? WalkingDetails { get; set; }
+    public BoardingOrder? BoardingDetails { get; set; }
+    public ICollection<OrderApplication> Applications { get; set; } = new List<OrderApplication>();
 }
