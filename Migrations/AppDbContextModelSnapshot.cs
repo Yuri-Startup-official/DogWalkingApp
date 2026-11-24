@@ -59,8 +59,18 @@ namespace DogWalkingApp.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<DateTime?>("EndAt")
                         .HasColumnType("timestamp with time zone");
@@ -77,6 +87,11 @@ namespace DogWalkingApp.Api.Migrations
 
                     b.Property<int>("OwnerId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("LocationAddress")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("ReportText")
                         .HasColumnType("text");
@@ -97,6 +112,37 @@ namespace DogWalkingApp.Api.Migrations
                     b.HasIndex("WalkerId");
 
                     b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("DogWalkingApp.Api.Models.OrderApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("WalkerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "WalkerId")
+                        .IsUnique();
+
+                    b.HasIndex("WalkerId");
+
+                    b.ToTable("OrderApplications");
                 });
 
             modelBuilder.Entity("DogWalkingApp.Api.Models.UserSession", b =>
@@ -192,7 +238,28 @@ namespace DogWalkingApp.Api.Migrations
 
                     b.Navigation("Dog");
 
+                    b.Navigation("Applications");
+
                     b.Navigation("Owner");
+
+                    b.Navigation("Walker");
+                });
+
+            modelBuilder.Entity("DogWalkingApp.Api.Models.OrderApplication", b =>
+                {
+                    b.HasOne("DogWalkingApp.Api.Models.Order", "Order")
+                        .WithMany("Applications")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DogWalkingApp.Api.Models.User", "Walker")
+                        .WithMany()
+                        .HasForeignKey("WalkerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
 
                     b.Navigation("Walker");
                 });
