@@ -16,6 +16,8 @@ The API is an ASP.NET Core modular monolith backed by PostgreSQL through Entity 
 
 Web, desktop, and later mobile clients share these APIs and business rules.
 
+The API remains one deployable modular monolith while the product is small. Keep modules independent by domain; introduce separate services only if scale or team ownership later requires them. Product-level boundaries and target folders are described in the frontend repository's `docs/architecture/SYSTEM_ARCHITECTURE.md`.
+
 ## Current authorization model
 
 - Public registration and login issue a short-lived bearer token after validating credentials.
@@ -34,6 +36,21 @@ Web, desktop, and later mobile clients share these APIs and business rules.
 - **Support:** customer conversation list/create, protected message history, staff assignment, reply, and status under `/api/support/conversations`
 
 New contracts should use DTOs, validate ownership on the server, and return only the data required by that caller.
+
+## Target domain boundaries
+
+Keep HTTP controllers thin and organize new use cases within these domains:
+
+- **Identity:** registration, login, recovery, sessions, verification, and role checks.
+- **Profiles and pets:** owner/provider profile, pet details, and privacy-sensitive documents.
+- **Services and availability:** provider service types, service areas, hours, and capacity.
+- **Marketplace and orders:** search, order lifecycle, applications, assignment, cancellation, and disputes.
+- **Conversations:** order-linked owner/provider communication.
+- **Support:** private customer-to-manager conversations and staff queue.
+- **Payments:** payment attempts, refunds, payout records, reconciliation, and webhook processing.
+- **Trust and notifications:** reviews, safety reports, in-app events, and delivery adapters.
+
+The existing project is currently organized by technical folder (`Controllers/`, `Models/`, `Dtos/`, `Data/`). Do not move code solely to match the target folder diagram; preserve migration history and keep domain boundaries explicit as modules grow.
 
 ## Manager support chat module
 
@@ -66,6 +83,7 @@ The first version uses REST and polling; an authenticated SignalR hub can replac
 - Database-level unique index for normalized email.
 - Revocable/rotating sessions and an explicit sign-out policy.
 - Staff audit history for assignment and resolution actions.
-- Atomic assignment under concurrent sitter applications.
 - Audit and access tests for user data, addresses, support threads, and staff permissions.
 - Production HTTPS, managed secrets, backups, retention, and operational monitoring.
+
+The API currently has no explicit `/v1` route prefix. Decide and document API versioning before public mobile clients or third-party consumers depend on these contracts.
