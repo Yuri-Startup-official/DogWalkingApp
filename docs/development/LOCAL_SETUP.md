@@ -10,9 +10,10 @@ The Compose database is for local development and testing only. Its port is boun
 
 ## Start an isolated PostgreSQL database
 
-From the API project root:
+The Compose files are kept in `infra/local/`. From the API project root:
 
 ```powershell
+Push-Location infra/local
 Copy-Item .env.example .env
 ```
 
@@ -21,9 +22,16 @@ Edit `.env` and replace `POSTGRES_PASSWORD` with a random local password. Then s
 ```powershell
 docker compose up -d
 docker compose ps
+Pop-Location
 ```
 
-The Compose file creates a separate `dogwalking_test` database and a named volume. `docker compose down` stops the container and preserves the test data.
+The Compose file creates a separate `dogwalking_test` database and a named volume. To stop it later while preserving test data:
+
+```powershell
+Push-Location infra/local
+docker compose down
+Pop-Location
+```
 
 ## Store local API secrets
 
