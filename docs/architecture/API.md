@@ -23,6 +23,7 @@ The API remains one deployable modular monolith while the product is small. Keep
 - Public registration and login issue a short-lived bearer token after validating credentials.
 - Passwords are stored as BCrypt hashes. Password hashes are excluded from JSON responses.
 - `owner`, `sitter`, and `both` are application roles. Administrative and support permissions are internal and must never be granted by public registration.
+- A `both` account uses one identity for both workspaces. The selected workspace is not an authorization boundary; provider actions must be checked against provider profile/verification state as that workflow is added.
 - The server derives the caller identity from the validated token. A request body cannot select another user's pets, orders, or address.
 - Open-order search exposes an approximate area. The exact address is returned only to the owner or the assigned sitter.
 - Auth routes have rate limits; CORS origins are configured separately from authentication.
