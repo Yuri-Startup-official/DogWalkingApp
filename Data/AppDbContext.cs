@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<WalkingOrder> WalkingOrders => Set<WalkingOrder>();
     public DbSet<BoardingOrder> BoardingOrders => Set<BoardingOrder>();
     public DbSet<OrderApplication> OrderApplications => Set<OrderApplication>();
+    public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
+    public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -178,6 +180,56 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(x => x.SitterId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SupportConversation>(e =>
+        {
+            e.ToTable("support_conversations");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.RequesterId).HasColumnName("requester_id");
+            e.Property(x => x.AssignedManagerId).HasColumnName("assigned_manager_id");
+            e.Property(x => x.OrderId).HasColumnName("order_id");
+            e.Property(x => x.Topic).HasColumnName("topic").HasMaxLength(40);
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.ResolvedAt).HasColumnName("resolved_at");
+            e.HasIndex(x => new { x.RequesterId, x.UpdatedAt });
+            e.HasIndex(x => new { x.Status, x.UpdatedAt });
+            e.HasIndex(x => x.AssignedManagerId);
+            e.HasOne(x => x.Requester)
+             .WithMany()
+             .HasForeignKey(x => x.RequesterId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.AssignedManager)
+             .WithMany()
+             .HasForeignKey(x => x.AssignedManagerId)
+             .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Order)
+             .WithMany()
+             .HasForeignKey(x => x.OrderId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<SupportMessage>(e =>
+        {
+            e.ToTable("support_messages");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.ConversationId).HasColumnName("conversation_id");
+            e.Property(x => x.SenderId).HasColumnName("sender_id");
+            e.Property(x => x.Body).HasColumnName("body").HasMaxLength(4000);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.HasIndex(x => new { x.ConversationId, x.Id });
+            e.HasOne(x => x.Conversation)
+             .WithMany(x => x.Messages)
+             .HasForeignKey(x => x.ConversationId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Sender)
+             .WithMany()
+             .HasForeignKey(x => x.SenderId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

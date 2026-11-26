@@ -111,7 +111,7 @@ public sealed class OrdersController : ControllerBase
 
         await LoadOrderDetails(_db.Orders.Where(item => item.Id == order.Id))
             .FirstAsync();
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, ToDto(order, revealLocation: true, applicationStatus: null));
+        return CreatedAtAction(nameof(GetById), new { id = order.Id }, ToDto(order, revealLocation: true, applicationStatus: null, canContactSupport: true));
     }
 
     [Authorize(Roles = "owner,sitter,both")]
@@ -133,7 +133,8 @@ public sealed class OrdersController : ControllerBase
         return Ok(orders.Select(order => ToDto(
             order,
             revealLocation: order.OwnerId == userId || order.SitterId == userId,
-            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == userId)?.Status)).ToList());
+            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == userId)?.Status,
+            canContactSupport: order.OwnerId == userId || order.SitterId == userId)).ToList());
     }
 
     [Authorize(Roles = "sitter,both")]
@@ -153,7 +154,8 @@ public sealed class OrdersController : ControllerBase
         return Ok(orders.Select(order => ToDto(
             order,
             revealLocation: false,
-            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == sitterId)?.Status)).ToList());
+            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == sitterId)?.Status,
+            canContactSupport: false)).ToList());
     }
 
     [Authorize(Roles = "owner,sitter,both")]
@@ -181,7 +183,8 @@ public sealed class OrdersController : ControllerBase
         }
 
         return Ok(ToDto(order, revealLocation: isOwner || isAssignedSitter,
-            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == userId)?.Status));
+            applicationStatus: order.Applications.FirstOrDefault(app => app.SitterId == userId)?.Status,
+            canContactSupport: isOwner || isAssignedSitter));
     }
 
     [Authorize(Roles = "sitter,both")]
@@ -377,7 +380,7 @@ public sealed class OrdersController : ControllerBase
         .Include(order => order.BoardingDetails)
         .Include(order => order.Applications);
 
-    private static OrderDto ToDto(Order order, bool revealLocation, string? applicationStatus)
+    private static OrderDto ToDto(Order order, bool revealLocation, string? applicationStatus, bool canContactSupport)
     {
         var startAt = order.WalkingDetails?.StartTime ?? order.BoardingDetails?.CheckInAt ?? order.CreatedAt;
         DateTime? endAt = order.WalkingDetails is not null
@@ -398,6 +401,7 @@ public sealed class OrdersController : ControllerBase
             order.TotalPrice,
             order.Applications.Count(application => application.Status == "pending"),
             applicationStatus,
+            canContactSupport,
             order.Pet is null ? null : new PetSummaryDto(
                 order.Pet.Id,
                 order.Pet.Name,
@@ -478,6 +482,7 @@ public sealed class OrdersController : ControllerBase
         decimal? TotalPrice,
         int ApplicationCount,
         string? ApplicationStatus,
+        bool CanContactSupport,
         PetSummaryDto? Pet);
 
     public sealed record OrderApplicationDto(

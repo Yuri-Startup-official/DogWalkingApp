@@ -63,3 +63,5 @@ Swagger is available at `http://localhost:5199/swagger` in Development. Start th
 ## Account and registration behavior
 
 Registration accepts roles `Owner`, `Walker`, or `Both`. Passwords must be at least 10 characters. The API stores BCrypt password hashes and returns only a small user profile with the access token. Email verification is not implemented yet.
+
+The internal `support` role is deliberately excluded from public registration. Support staff accounts must be provisioned through a controlled administrator process; do not add a public role selector for this permission.

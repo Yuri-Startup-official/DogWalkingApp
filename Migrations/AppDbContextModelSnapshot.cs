@@ -309,6 +309,100 @@ namespace DogWalkingApp.Api.Migrations
                     b.ToTable("pets", (string)null);
                 });
 
+            modelBuilder.Entity("DogWalkingApp.Api.Models.SupportConversation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AssignedManagerId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("assigned_manager_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long?>("OrderId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("order_id");
+
+                    b.Property<long>("RequesterId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("requester_id");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("topic");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedManagerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("RequesterId", "UpdatedAt");
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("support_conversations", (string)null);
+                });
+
+            modelBuilder.Entity("DogWalkingApp.Api.Models.SupportMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<long>("ConversationId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("SenderId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("sender_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("ConversationId", "Id");
+
+                    b.ToTable("support_messages", (string)null);
+                });
+
             modelBuilder.Entity("DogWalkingApp.Api.Models.User", b =>
                 {
                     b.Property<long>("Id")
@@ -504,6 +598,50 @@ namespace DogWalkingApp.Api.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("DogWalkingApp.Api.Models.SupportConversation", b =>
+                {
+                    b.HasOne("DogWalkingApp.Api.Models.User", "AssignedManager")
+                        .WithMany()
+                        .HasForeignKey("AssignedManagerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("DogWalkingApp.Api.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("DogWalkingApp.Api.Models.User", "Requester")
+                        .WithMany()
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssignedManager");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Requester");
+                });
+
+            modelBuilder.Entity("DogWalkingApp.Api.Models.SupportMessage", b =>
+                {
+                    b.HasOne("DogWalkingApp.Api.Models.SupportConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DogWalkingApp.Api.Models.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("DogWalkingApp.Api.Models.WalkingOrder", b =>
                 {
                     b.HasOne("DogWalkingApp.Api.Models.Order", "Order")
@@ -522,6 +660,11 @@ namespace DogWalkingApp.Api.Migrations
                     b.Navigation("BoardingDetails");
 
                     b.Navigation("WalkingDetails");
+                });
+
+            modelBuilder.Entity("DogWalkingApp.Api.Models.SupportConversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

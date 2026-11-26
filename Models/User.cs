@@ -26,7 +26,7 @@ public class User
     
     // В PostgreSQL это ENUM, в C# — обычная строка или enum
     [MaxLength(10)]
-    public string Role { get; set; } = "owner"; // owner | sitter | both
+    public string Role { get; set; } = "owner"; // owner | sitter | both | support (internal)
     
     public bool EmailVerified { get; set; }
     public bool PhoneVerified { get; set; }

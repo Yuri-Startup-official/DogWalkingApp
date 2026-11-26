@@ -8,7 +8,7 @@ The API is an ASP.NET Core modular monolith backed by PostgreSQL through Entity 
 | --- | --- |
 | `Controllers/` | HTTP routing, authentication requirements, and resource authorization |
 | `Dtos/` | Input validation and response contracts; do not serialize EF entities directly |
-| `Models/` | Persisted users, pets, orders, and order applications |
+| `Models/` | Persisted users, pets, orders, applications, and support conversations |
 | `Data/` | EF Core context, schema mappings, and safe design-time configuration |
 | `Migrations/` | Versioned PostgreSQL schema changes |
 | `Services/` | Token creation and cross-cutting application services |
@@ -31,27 +31,28 @@ Web, desktop, and later mobile clients share these APIs and business rules.
 - **Identity:** `/api/Users/register`, `/api/Users/login`, `/api/Users/me`
 - **Pets:** `/api/Pets/mine`, `/api/Pets`
 - **Orders:** create/list/detail, open-order search, applications, owner assignment, start, and completion under `/api/Orders`
+- **Support:** customer conversation list/create, protected message history, staff assignment, reply, and status under `/api/support/conversations`
 
 New contracts should use DTOs, validate ownership on the server, and return only the data required by that caller.
 
-## Manager support chat module — planned
+## Manager support chat module
 
-Support is a server-owned conversation domain, available to owners and sitters in web/desktop and later mobile. Keep it distinct from an owner-to-sitter service conversation.
+Support is a server-owned conversation domain available to owners and sitters in web/desktop and later mobile. It is separate from owner-to-sitter order conversations. The current desktop/web client refreshes the conversation list every five seconds and the active thread every four seconds.
 
-Initial entities:
+Persisted entities:
 
 - `SupportConversation`: requester, optional order reference, topic, status, assigned manager, and timestamps.
-- `SupportMessage`: conversation, sender, text, sent time, and read time.
-- `SupportAuditEvent`: staff assignment and status/access changes where operational review requires it.
+- `SupportMessage`: conversation, sender, text, and sent time.
 
 Access rules:
 
-- A requester can list and read only their own conversations and can send while the conversation is open.
-- A manager can read/reply only with an internal support permission; assignment and resolution are audited.
+- A requester can list and read only their own conversations. A conversation can reference only an order they own or are assigned to.
+- A manager account has the internal `support` role, cannot be created through public registration, and must claim an unassigned conversation before replying.
+- Managers see the unassigned queue and conversations assigned to themselves. A concurrent claim can succeed for only one manager.
+- The server checks conversation ownership and staff role on every request. Customer replies reopen a conversation; staff replies set it to waiting; support staff can resolve or reopen it.
 - Every conversation and order reference is checked server-side. The client cannot grant staff privileges.
-- Start with persisted text messages. Add private file storage only with MIME/size checks, access checks, retention, and malware scanning.
 
-Suggested API shape: REST for conversation lists/history and creation, with an authenticated SignalR hub for live message delivery. Both paths call the same authorization and persistence service. If real-time delivery is deferred, the same model can start with REST polling without changing ownership rules.
+The first version uses REST and polling; an authenticated SignalR hub can replace polling later without changing message ownership rules. Messages are text-only. File attachments, read receipts, and staff audit history are not implemented yet and should be designed before production support operations.
 
 ## Future integrations
 
@@ -64,6 +65,7 @@ Suggested API shape: REST for conversation lists/history and creation, with an a
 - Email verification and password recovery.
 - Database-level unique index for normalized email.
 - Revocable/rotating sessions and an explicit sign-out policy.
+- Staff audit history for assignment and resolution actions.
 - Atomic assignment under concurrent sitter applications.
 - Audit and access tests for user data, addresses, support threads, and staff permissions.
 - Production HTTPS, managed secrets, backups, retention, and operational monitoring.
